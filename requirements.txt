@@ -1,0 +1,6 @@
+Flask
+pandas
+joblib
+gdown
+gunicorn
+scikit-learn
