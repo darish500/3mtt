@@ -1,6 +1,5 @@
-Flask
+streamlit
 pandas
 joblib
 gdown
-gunicorn
 scikit-learn

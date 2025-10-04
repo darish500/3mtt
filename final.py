@@ -1,22 +1,27 @@
-import streamlit as st
-import pandas as pd
-import joblib
-import gdown
 import os
+import streamlit as st
 
 MODEL_PATH = "heart_attack_risk_model.pkl"
 FILE_ID = "1D6tor14R0jFqhvAhiOxPO_q2u26lK-kw"
 DOWNLOAD_URL = f"https://drive.google.com/uc?id={FILE_ID}"
 
-# Download model from Google Drive if not present
-@st.cache_resource
-def load_model():
-    if not os.path.exists(MODEL_PATH):
-        with st.spinner("Downloading model from Google Drive..."):
-            gdown.download(DOWNLOAD_URL, MODEL_PATH, quiet=False)
-    return joblib.load(MODEL_PATH)
+# Ensure the model file exists; download lazily only when needed
+def _ensure_model_file_present() -> None:
+    if os.path.exists(MODEL_PATH):
+        return
+    with st.spinner("Downloading model from Google Drive..."):
+        # Import gdown only when a download is actually required
+        import gdown as _gdown
+        _gdown.download(DOWNLOAD_URL, MODEL_PATH, quiet=True)
 
-model = load_model()
+# Lazily load and cache the model across reruns
+@st.cache_resource(show_spinner=False)
+def get_model():
+    _ensure_model_file_present()
+    # Import joblib only when loading the model
+    import joblib as _joblib
+    # Use memory mapping to reduce load time and RAM when possible
+    return _joblib.load(MODEL_PATH, mmap_mode="r")
 
 st.title("Heart Attack Risk Predictor")
 
@@ -47,6 +52,8 @@ with st.form("risk_form"):
     submit = st.form_submit_button("Predict")
 
 if submit:
+    # Defer heavy imports until prediction is requested
+    import pandas as pd
     input_data = pd.DataFrame([[
         Age, Gender, Smoking, Alcohol_Consumption, Physical_Activity_Level,
         BMI, Diabetes, Hypertension, Cholesterol_Level, Resting_BP,
@@ -61,5 +68,6 @@ if submit:
         "Max_Heart_Rate_Achieved"
     ])
 
+    model = get_model()
     prediction = model.predict(input_data)[0]
     st.success(f"Predicted Risk: {prediction}")
